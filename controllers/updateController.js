@@ -11,6 +11,7 @@ const taskUpdateEmail=(updatedBy,toEmail,task,updateTask)=>{
         subject:`${updatedBy} updates the task [${task.tname}]`,
         template:'updateTaskEmail',
         context:{
+            tid:task.id,
             tname:task.tname,
             authorName:task.author.name,
             updateReason:updateTask.updateReason,

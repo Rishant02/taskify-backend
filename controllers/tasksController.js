@@ -13,6 +13,7 @@ const createTaskMail=(task,toEmail,creatorName)=>{
         subject:`${creatorName} assigned a task to you [${task.tname}]`,
         template:'createTaskEmail',
         context:{
+            tid:task.id,
             tname:task.tname,
             tdesc:task.tdesc,
             startDate:new Date(task.startDate).toLocaleDateString(),
