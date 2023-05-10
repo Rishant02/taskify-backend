@@ -5,10 +5,10 @@ const path=require('path')
 
 const handlebarOptions={
     viewEngine:{
-        partialDir:path.resolve('../backend/views/'),
+        partialDir:path.resolve('../taskify-backend/views/'),
         defaultLayout:false,
     },
-    viewPath: path.resolve('../backend/views/')
+    viewPath: path.resolve('../taskify-backend/views/')
 }
 
 const sendVerificationEmail=async (mailOptions)=>{

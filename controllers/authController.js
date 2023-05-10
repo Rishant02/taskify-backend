@@ -49,7 +49,7 @@ module.exports.registerUser=async(req,res,next)=>{
         const verificationTokenExpiresAt=new Date();
         verificationTokenExpiresAt.setHours(verificationTokenExpiresAt.getHours()+3);
         const newUser=new User({username,email,password:hashedPwd,dept,emp_code,verificationToken,name,verificationTokenExpiresAt});
-        newUser.passwordChanged=false;
+        newUser.passwordChanged=true;
         await newUser.save();
         sendMail(verifyEmailOption(newUser));
         const verificationMsg=`Please check your email inbox to verify your email address.Link will expires in 3 hrs.`
