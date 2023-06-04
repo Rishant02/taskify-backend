@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema({
         trim: true,
         required: [true, 'Enter a password.']
     },
+    role:{
+        type: String,
+    },
     name: {
         type: String,
         trim: true,
