@@ -1,5 +1,6 @@
 const TaskUpdate=require('../db/taskUpdateSchema')
 const Task=require('../db/taskSchema')
+const ObjectId = require('mongoose').Types.ObjectId
 const Notification=require('../db/notificationSchema')
 const sendMail=require('../utils/sendMail')
 const User = require('../db/userSchema')
@@ -49,7 +50,7 @@ module.exports.createTaskUpdate=async(req,res,next)=>{
         const {updateReason,committedDate,updateStatus}=req.body;
         const task=await Task.findById(taskId).populate('author','-password')
         const loggedUser = await User.findById(req.userID)
-        if(!(task.assignTo.concat([task.author.id]).includes(req.userID) || (loggedUser?.role==='department head' && loggedUser?.dept===task.author?.dept))){
+        if(!(task.assignTo.concat([task.author._id]).some((userId)=>userId.equals(loggedUser._id)) || (loggedUser?.role==='department head' && loggedUser?.dept===task.author?.dept))){
             return res.status(403).json({message:'You are not allowed to update status'})
         }
         const newUpdate=new TaskUpdate({taskId,updateReason,updatedBy:req.userID,committedDate,updateStatus})
