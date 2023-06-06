@@ -39,14 +39,41 @@ module.exports.getAllTasks = async (req, res, next) => {
           }
           const userIds = await Users.find({dept:loggedUser?.dept}).select('_id')
           tasks = await Tasks.find({
-            $or:[
-              {author:{$in:userIds}},
-              // {assignTo:{$in:userIds}}
+            $or: [
+              {
+                $and: [
+                  { author: { $in: userIds } },
+                  {
+                    $expr: {
+                      $and: [
+                        { $gt: [{ $size: '$assignTo' }, 0] },
+                        {
+                          $not: {
+                            $anyElementTrue: {
+                              $map: {
+                                input: '$assignTo',
+                                as: 'assignee',
+                                in: { $eq: ['$$assignee', '$author'] }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                $and: [
+                  { author: req.userID },
+                  { assignTo: req.userID }
+                ]
+              }
             ]
           })
-            .populate('author','-password')
-            .populate('assignTo','-password')
-            .sort({_id:-1})
+            .populate('author', '-password')
+            .populate('assignTo', '-password')
+            .sort({ _id: -1 });
         }
         else{
             tasks = await Tasks.find({
@@ -241,6 +268,9 @@ module.exports.createTask = async (req, res, next) => {
         }
         if(newTask.startDate>dueDate){
             throw new Error('Due date must be higher than current time')
+        }
+        if(assignTo.length === 0){
+            throw new Error('You must assign task to atleast 1 employee')
         }
         newTask.author = req.userID;
         // newTask.attachment = req.files.map(f => ({ url: f.path, filename: f.filename }))
