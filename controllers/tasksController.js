@@ -258,8 +258,8 @@ module.exports.getTask=async(req,res,next)=>{
 
 module.exports.createTask = async (req, res, next) => {
     try {
-        const { tname, tdesc, status, startDate,dueDate,assignTo} = req.body;
-        const newTask = new Tasks({ tname, tdesc, status, startDate, dueDate, assignTo });
+        const { tname, tdesc, status, startDate,dueDate,assignTo,recurAmount} = req.body;
+        const newTask = new Tasks({ tname, tdesc, status, startDate, dueDate, assignTo, recurAmount });
         if(!startDate){
             newTask.startDate=new Date().toISOString()
         }
@@ -272,12 +272,15 @@ module.exports.createTask = async (req, res, next) => {
         if(assignTo.length === 0){
             throw new Error('You must assign task to atleast 1 employee')
         }
+        if(recurAmount && recurAmount<=0){
+          throw new Error('Recurred days can\'t be less than 1')
+        }
+        if(recurAmount){
+          newTask.tname+= ` [${new Date(newTask.startDate).toLocaleDateString()}]`
+        }
         newTask.author = req.userID;
         // newTask.attachment = req.files.map(f => ({ url: f.path, filename: f.filename }))
         if (assignTo) {
-            // if(assignTo.includes(req.userID)){
-            //     throw new Error('You can not assign a task to yourself.')
-            // }
             assignTo?.forEach(async(userId)=>{
                 await Users.findByIdAndUpdate(userId,{$push:{tasks:newTask._id}})
             })

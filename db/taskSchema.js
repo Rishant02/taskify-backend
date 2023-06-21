@@ -60,6 +60,10 @@ const taskSchema = new mongoose.Schema({
             filename:String
         }
     ],
+    recurAmount:{
+        type: Number,
+        default:null
+    }
 
 }, { timestamps: true })
 
