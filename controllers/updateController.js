@@ -5,10 +5,11 @@ const Notification=require('../db/notificationSchema')
 const sendMail=require('../utils/sendMail')
 const User = require('../db/userSchema')
 
-const taskUpdateEmail=(updatedBy,toEmail,task,updateTask)=>{
+const taskUpdateEmail=(updatedBy,toEmail,cc,task,updateTask)=>{
     return{
         from:process.env.EMAIL_ADDRESS,
         to:toEmail,
+        cc,
         subject:`${updatedBy} updates the task [${task.tname}]`,
         template:'updateTaskEmail',
         context:{
@@ -49,35 +50,51 @@ module.exports.createTaskUpdate=async(req,res,next)=>{
         const {taskId}=req.params;
         const {updateReason,committedDate,updateStatus}=req.body;
         const task=await Task.findById(taskId).populate('author','-password')
-        const loggedUser = await User.findById(req.userID)
-        if(!(task.assignTo.concat([task.author._id]).some((userId)=>userId.equals(loggedUser._id)) || (loggedUser?.role==='department head' && loggedUser?.dept===task.author?.dept))){
+        const updateAuthor=await User.findById(req.userID)
+        const allUsersOfTask = task.assignTo.concat([task.author._id])
+        if(!(allUsersOfTask.some((userId)=>userId.equals(updateAuthor._id)) || (updateAuthor?.role==='department head' && updateAuthor?.dept===task.author?.dept))){
             return res.status(403).json({message:'You are not allowed to update status'})
         }
         const newUpdate=new TaskUpdate({taskId,updateReason,updatedBy:req.userID,committedDate,updateStatus})
         newUpdate.attachment=req?.files?.map(f=>({url:f.path,filename:f.filename}))
         const updatedTask=await Task.findByIdAndUpdate(taskId,{$push:{taskUpdates:newUpdate._id},status:updateStatus},{new:true}).populate('author');
-        const updateAuthor=await User.findById(req.userID)
+        
         if(newUpdate.updatedBy.equals(task.author._id)){
-            task.assignTo.forEach(async(user)=>{
-                const notifys=new Notification({recipient:user._id,taskUpdate:newUpdate._id})
-                await notifys.save()
-                const userEmail=await User.findById(user._id).select({'email':1,_id:0})
-                sendMail(taskUpdateEmail(updateAuthor.name,userEmail,updatedTask,newUpdate))
-            })
-        }else if(!task.assignTo.includes(req.userID) && loggedUser.role === 'department head'){
-            task.assignTo.concat([task.author]).forEach(async(user)=>{
-                const notifys=new Notification({recipient:user._id,taskUpdate:newUpdate._id})
-                await notifys.save()
-                const userEmail=await User.findById(user._id).select({'email':1,_id:0})
-                sendMail(taskUpdateEmail(updateAuthor.name,userEmail,updatedTask,newUpdate))
-            })
+            let toEmails = await Promise.all(
+                task.assignTo.map(async(user)=>{
+                    const notifys = new Notification({recipient:user._id,taskUpdate:newUpdate._id})
+                    await notifys.save()
+                    const userEmail=await User.findById(user._id).select({'email':1,_id:0})
+                    if(userEmail){
+                        return userEmail
+                    }
+                })
+            )
+            await sendMail(taskUpdateEmail(updateAuthor?.name,toEmails.filter((email)=>email),updateAuthor?.email,task,newUpdate))
+        }else if(!task.assignTo.includes(req.userID) && updateAuthor?.role === 'department head'){
+            let toEmails = await Promise.all(
+                task.assignTo.concat([task.author]).map(async (user)=>{
+                    const notifys=new Notification({recipient:user._id,taskUpdate:newUpdate._id})
+                    await notifys.save()
+                    const userEmail=await User.findById(user._id).select({'email':1,_id:0})
+                    if(userEmail){
+                        return userEmail
+                    }
+                })
+            )
+            await sendMail(taskUpdateEmail(updateAuthor?.name,toEmails.filter((email)=>email),updateAuthor?.email,task,newUpdate))
         }else{
-            task.assignTo.filter((data)=>!data._id.equals(req.userID)).concat([task.author]).forEach(async(user)=>{
-                const notifys=new Notification({recipient:user._id,taskUpdate:newUpdate._id})
-                await notifys.save()
-                const userEmail=await User.findById(user._id).select({'email':1,_id:0})
-                sendMail(taskUpdateEmail(updateAuthor.name,userEmail,updatedTask,newUpdate))
-            })
+            let toEmails = await Promise.all(
+                task.assignTo.filter((data)=>!data._id.equals(req.userID)).concat([task.author]).map(async (user)=>{
+                    const notifys=new Notification({recipient:user._id,taskUpdate:newUpdate._id})
+                    await notifys.save()
+                    const userEmail=await User.findById(user._id).select({'email':1,_id:0})
+                    if(userEmail){
+                        return userEmail
+                    }
+                })
+            )
+            await sendMail(taskUpdateEmail(updateAuthor?.name,toEmails.filter((email)=>email),updateAuthor?.email,task,newUpdate))
         }
         if(committedDate){
             await Task.findByIdAndUpdate(taskId,{dueDate:committedDate})

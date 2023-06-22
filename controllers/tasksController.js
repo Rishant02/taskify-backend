@@ -6,10 +6,11 @@ const {cloudinary}=require('../cloudinary/index');
 const sendMail=require('../utils/sendMail')
 const Notification = require('../db/notificationSchema');
 
-const createTaskMail=(task,toEmail,creatorName)=>{
+const createTaskMail=(task,toEmail,cc,creatorName)=>{
     return{
         from:process.env.EMAIL_ADDRESS,
         to:toEmail,
+        cc,
         subject:`${creatorName} assigned a task to you [${task.tname}]`,
         template:'createTaskEmail',
         context:{
@@ -292,10 +293,15 @@ module.exports.createTask = async (req, res, next) => {
         })
         await newTask.save();
         const author=await Users.findById(req.userID)
-        newTask.assignTo.forEach(async(user)=>{
-            const assignee=await Users.findById(user._id)
-            sendMail(createTaskMail(newTask,assignee.email,author.name))
-        })
+        const toEmails = await Promise.all(
+          newTask.assignTo.map(async (user)=>{
+            const assignee = await Users.findById(user._id)
+            if(assignee.email){
+              return assignee.email
+            }
+          })
+        )
+        await sendMail(createTaskMail(newTask,toEmails.filter((email)=>email),author?.email,author?.name))
         return res.status(201).json(newTask)
     } catch (err) {
         next(err);
