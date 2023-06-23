@@ -5,6 +5,7 @@ const ObjectId=require('mongoose').Types.ObjectId;
 const {cloudinary}=require('../cloudinary/index');
 const sendMail=require('../utils/sendMail')
 const Notification = require('../db/notificationSchema');
+const moment = require('moment')
 
 const createTaskMail=(task,toEmail,cc,creatorName)=>{
     return{
@@ -98,7 +99,7 @@ module.exports.getAllTasks = async (req, res, next) => {
                     {
                       $and: [
                         { $in: ['$status', ['OPEN', 'IN PROGRESS']] },
-                        { $gt: [new Date(), { $add: ['$dueDate', 24 * 60 * 60 * 1000] }] }
+                        { $gt: [new Date(), '$dueDate'] }
                       ]
                     },
                     true,
@@ -147,8 +148,7 @@ module.exports.getAllTasks = async (req, res, next) => {
         const taskStats = await Tasks.aggregate(pipeline)
         const notifys = await Notification.find({recipient:req.userID})
         tasks.forEach((task)=>{
-            const modDate = new Date(task.dueDate)
-            if(Date.now()>modDate.setDate(modDate.getDate()+1)){
+            if(Date.now()>new Date(task.dueDate)){
                 task.isLate = true
             }else{
                 task.isLate = false
@@ -277,7 +277,7 @@ module.exports.createTask = async (req, res, next) => {
           throw new Error('Recurred days can\'t be less than 1')
         }
         if(recurAmount){
-          newTask.tname+= ` [${new Date(newTask.startDate).toLocaleDateString()}]`
+          newTask.tname+= ` [${moment(newTask.startDate).format('DD/MM/YYYY')}]`
         }
         newTask.author = req.userID;
         // newTask.attachment = req.files.map(f => ({ url: f.path, filename: f.filename }))

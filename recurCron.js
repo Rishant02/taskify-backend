@@ -2,6 +2,7 @@ require('dotenv').config();
 require('./db/conn');
 const Task = require('./db/taskSchema');
 const User = require('./db/userSchema');
+const moment = require('moment')
 const sendMail = require('./utils/sendMail');
 const cron = require('node-cron')
 
@@ -29,7 +30,7 @@ async function createRecurTasks() {
       recurAmount: { $ne: null },
       $expr: {
         $gte: [
-          new Date(Date.now()+30*24*60*60*1000),
+          new Date(),
           { $add: [{ $toDate: '$startDate' }, { $multiply: ['$recurAmount', 24 * 60 * 60 * 1000] }] },
         ],
       },
@@ -38,15 +39,15 @@ async function createRecurTasks() {
     await Promise.all(
       tasks.map(async (task) => {
         const tnameRegex = /\[\d{1,2}\/\d{1,2}\/\d{4}\]/g;
-        const newDateStr = `[${new Date(Date.now()+30*24*60*60*1000).toLocaleDateString()}]`;
+        const newDateStr = `[${new Date().toLocaleDateString()}]`;
         const newTname = task.tname.replace(tnameRegex, newDateStr);
-        const dueDateDiff = new Date(task.dueDate) - new Date(task.startDate);
+        const dueDateDiff = Math.ceil((moment(task.dueDate) - moment(task.startDate))/(24 * 60 * 60 * 1000));
 
         const newTask = new Task({
           tname: newTname,
           tdesc: task?.tdesc,
-          startDate: new Date(Date.now()+30*24*60*60*1000),
-          dueDate: new Date(Date.now() +Date.now()+30*24*60*60*1000+ dueDateDiff),
+          startDate: new Date().toISOString(),
+          dueDate: moment().add(`${dueDateDiff}d`).endOf('day').toISOString(),
           assignTo: task.assignTo,
           author: task.author,
           recurAmount: task.recurAmount,
@@ -56,7 +57,7 @@ async function createRecurTasks() {
           ...newTask.assignTo.map((userId) => User.findByIdAndUpdate(userId, { $push: { tasks: newTask._id } })),
           User.findByIdAndUpdate(newTask.author, { $push: { tasks: newTask._id } }),
           newTask.save(),
-          Task.findByIdAndUpdate(task._id, { recurAmount: undefined }),
+          Task.findByIdAndUpdate(task._id, { recurAmount: null }),
         ]);
 
         const author = await User.findById(newTask.author._id);
