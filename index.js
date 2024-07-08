@@ -40,7 +40,6 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, cb) => {
-      console.log(origin);
       if (!origin || whitelist.indexOf(origin) !== -1) {
         cb(null, true);
       } else {
