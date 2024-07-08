@@ -3,7 +3,6 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 const express = require("express");
-const cors = require("cors");
 const dbConnect = require("./db/conn");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -18,14 +17,6 @@ const notifyRouter = require("./routes/notifyRoutes");
 
 const port = process.env.PORT || 3500;
 
-const whitelist = [
-  "localhost:3500",
-  "localhost:5173",
-  "http://172.30.6.96",
-  "https://172.30.6.96",
-  "localhost",
-];
-
 dbConnect();
 
 const app = express();
@@ -37,18 +28,6 @@ app.use(function (req, res, next) {
 
 app.use(helmet());
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin || whitelist.indexOf(origin) !== -1) {
-        cb(null, true);
-      } else {
-        cb(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
 app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
