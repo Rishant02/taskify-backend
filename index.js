@@ -23,6 +23,7 @@ const whitelist = [
   "localhost:5173",
   "http://172.30.6.96",
   "https://172.30.6.96",
+  "localhost",
 ];
 
 dbConnect();
@@ -36,7 +37,18 @@ app.use(function (req, res, next) {
 
 app.use(helmet());
 
-// app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || whitelist.indexOf(origin) !== -1) {
+        cb(null, true);
+      } else {
+        cb(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
